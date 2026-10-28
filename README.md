@@ -1,13 +1,29 @@
-# autoresearch
+# Nograd-agent: No-grad Agent Descent
 
-Autoresearch with [Syne Tune](https://github.com/syne-tune/syne-tune): a coding
-agent (Claude Code) proposes new versions of a training script, and Syne Tune
+This repository gives code to run Autoresearch with [Syne Tune](https://github.com/syne-tune/syne-tune).
+
+A coding agent (Claude Code) proposes new versions of a training script, and Syne Tune
 runs and scores them as trials. The example task improves a small scikit-learn
 classifier on the Adult census income dataset.
 
 This is a standalone package that depends on the released `syne-tune` from
 PyPI, it plugs into Syne Tune through its public scheduler, backend and
 callback interfaces and does not modify or vendor any Syne Tune code.
+
+The key benefits are to get:
+- trial abstractions and execution: multiprocessing / multiGPU supported out of the box
+- easy to report scores without modifying train.py functions by just setting regexp
+- early stopping / successive halving available out of the box
+
+The repo is very much WIP, any feedback welcome. 
+
+**Related repos.**
+
+I was looking for a repository to run autoresearch and did not find any except the [original](https://github.com/karpathy/autoresearch) from Karpathy, which
+is minimal (mostly a markdown file). That is great, but it does not offer many features either.
+On the HPO / autoresearch space I am only aware of [autotune](https://github.com/RobertTLange/autotune), which derives a search space from your program, whereas
+nograd-agent uses autoresearch as a *searcher* in a standard hyperparameter optimization library.
+This [repo](https://github.com/ferreirafabio/autoresearch-automl) is also nice and benchmarks autoresearch against standard HPO methods, whereas nograd-agent can combine autoresearch with them.
 
 ## Layout
 
