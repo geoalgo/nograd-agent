@@ -1,0 +1,9 @@
+# Settings of `nograd-agent --src_dir examples/tabular/task`, flags override them.
+metric: valid_accuracy
+mode: max
+prompt_file: PROMPT.md
+frozen_files: [eval.py]
+n_workers: 2
+max_trials: 10
+trial_timeout: 120
+name: tabular
