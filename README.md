@@ -1,7 +1,7 @@
 # Nograd-agent: No-grad Agent Descent
 
 This repository gives code to run Autoresearch with [Syne Tune](https://github.com/syne-tune/syne-tune). 
-In case you know what grad-student descent is, this repo is doing no-grad agent descent as agents are not yet
+In case you know what grad-student descent is, this repo is doing no-grad agent descent as agents are *not yet*
 differentiable.
 
 A coding agent (Claude Code) proposes new versions of a training script, and Syne Tune
