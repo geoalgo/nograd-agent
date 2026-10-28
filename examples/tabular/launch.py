@@ -4,6 +4,9 @@ Every trial runs a new version of task/train.py proposed by the agent from the
 results of the previous versions. Requires the Claude Code CLI
 (https://docs.claude.com/en/docs/claude-code).
 
+This is the Python API, the same search runs from the command line with:
+    nograd-agent --src_dir examples/tabular/task
+
 Usage:
     python examples/tabular/launch.py --n_workers 2 --max_trials 10
 """
@@ -18,28 +21,14 @@ from syne_tune.results_callback import StoreResultsCallback
 
 from autoresearch import (
     ENTRY_POINT,
-    AutoResearch,
-    AutoResearchCallback,
-    AutoResearchLogger,
+    AutoSearch,
+    AutoSearchCallback,
+    AutoSearchLogger,
     ClaudeCodeAgent,
     LLMSearcher,
 )
 
-TASK_PROMPT = """\
-Improve the accuracy of a classifier on the Adult (census income) tabular \
-dataset: predict whether income is ">50K" or "<=50K" from 14 numeric and \
-categorical columns, some with missing values.
-
-train.py fits a scikit-learn model on the training split and saves it with \
-joblib; eval.py scores it on a validation split, which is the metric you \
-optimize. Constraints:
-- train.py must keep a main() function that fits and saves the model to \
-MODEL_PATH, and the saved model must accept the raw feature DataFrame in predict().
-- Only use the training data from load_train_data(); never load the validation \
-or test data or call functions from eval.py other than load_train_data.
-- Training and evaluation together must finish in under 60 seconds on a laptop \
-CPU. Only scikit-learn, numpy, pandas and joblib are installed.
-"""
+TASK_DIR = Path(__file__).parent / "task"
 
 
 def main():
@@ -52,14 +41,12 @@ def main():
     logging.basicConfig(level=logging.INFO)
 
     searcher = LLMSearcher(
-        task_prompt=TASK_PROMPT,
-        base_dir=Path(__file__).parent / "task",
+        task_prompt=(TASK_DIR / "PROMPT.md").read_text(),
+        base_dir=TASK_DIR,
         editable_files=["train.py"],
         frozen_files=["eval.py"],
-        # Imports train.py as a module rather than running it as __main__, so
-        # that classes it defines can be unpickled when evaluating.
-        train_command=["python", "-c", "import train; train.main()"],
-        evaluate_command=["python", "eval.py"],
+        train_command=["python", "train.py"],
+        # Parsed from the line "valid_accuracy: 0.85" printed by train.py.
         metric="valid_accuracy",
         mode="max",
         agent=ClaudeCodeAgent(model=args.model),
@@ -67,8 +54,8 @@ def main():
     )
     tuner = Tuner(
         trial_backend=LocalBackend(entry_point=ENTRY_POINT, pass_args_as_json=True),
-        scheduler=AutoResearch(searcher),
-        callbacks=[StoreResultsCallback(), AutoResearchCallback()],
+        scheduler=AutoSearch(searcher),
+        callbacks=[StoreResultsCallback(), AutoSearchCallback()],
         stop_criterion=StoppingCriterion(max_num_trials_finished=args.max_trials),
         n_workers=args.n_workers,
         # Broken candidates are expected and reported back to the agent.
@@ -77,7 +64,7 @@ def main():
         wait_trial_completion_when_stopping=True,
         sleep_time=1.0,
         tuner_name="autoresearch-tabular",
-        output_logger=AutoResearchLogger(searcher),
+        output_logger=AutoSearchLogger(searcher),
     )
     tuner.run()
 

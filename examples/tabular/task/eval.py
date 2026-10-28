@@ -2,25 +2,15 @@
 
 This file owns the data splits and the metric and must stay unchanged so that
 scores of different versions of train.py are comparable. train.py only gets
-access to the training split through load_train_data(). The validation split
-is used to compare candidates during tuning, the test split only to report the
-final performance.
-
-Usage:
-    python train.py      # fits a model and saves it to model.joblib
-    python eval.py       # prints the validation and test accuracy of model.joblib as JSON
+access to the training split through load_train_data(), and prints the scores
+returned by evaluate(). The validation split is used to compare candidates
+during tuning, the test split only to report the final performance.
 """
 
-import argparse
-import json
-from pathlib import Path
-
-import joblib
 import pandas as pd
 from sklearn.datasets import fetch_openml
 from sklearn.model_selection import train_test_split
 
-MODEL_PATH = Path(__file__).parent / "model.joblib"
 SPLIT_SEED = 0
 TEST_SIZE = 0.2  # fraction of all rows
 VALID_SIZE = 0.2  # fraction of all rows
@@ -52,22 +42,12 @@ def load_train_data() -> tuple[pd.DataFrame, pd.Series]:
     return _load_splits()["train"]
 
 
-def evaluate(model_path: str | Path = MODEL_PATH) -> dict[str, float]:
-    """Return the accuracy of the saved model on the validation and test splits."""
+def evaluate(model) -> dict[str, float]:
+    """Return the accuracy of a fitted model on the validation and test splits,
+    its predict() is called on the raw feature DataFrame."""
     splits = _load_splits()
-    model = joblib.load(model_path)
     return {
         f"{split}_accuracy": float((model.predict(X) == y).mean())
         for split, (X, y) in ((split, splits[split]) for split in SPLITS)
     }
 
-
-def main():
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--model_path", default=MODEL_PATH)
-    args = parser.parse_args()
-    print(json.dumps(evaluate(args.model_path)))
-
-
-if __name__ == "__main__":
-    main()

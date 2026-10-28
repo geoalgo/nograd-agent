@@ -11,30 +11,30 @@ from autoresearch.searchers.llm_searcher import LLMSearcher
 logger = logging.getLogger(__name__)
 
 
-class AutoResearch(TrialScheduler):
+class AutoSearch(TrialScheduler):
     """Tuning method where a coding agent proposes new versions of a script.
 
     Trials are not stopped early: every candidate is trained and evaluated fully.
 
     Forwards trial events to an :class:`LLMSearcher` and stores its workspace,
     candidates and log in ``<tuner_path>/autoresearch``, which requires passing
-    :class:`AutoResearchCallback` to the tuner. Trials must be run with
+    :class:`AutoSearchCallback` to the tuner. Trials must be run with
     :const:`autoresearch.ENTRY_POINT` as entry point, for instance:
 
     .. code-block:: python
 
         from autoresearch import (
             ENTRY_POINT,
-            AutoResearch,
-            AutoResearchCallback,
+            AutoSearch,
+            AutoSearchCallback,
             LLMSearcher,
         )
         from syne_tune.results_callback import StoreResultsCallback
 
         tuner = Tuner(
             trial_backend=LocalBackend(entry_point=ENTRY_POINT, pass_args_as_json=True),
-            scheduler=AutoResearch(LLMSearcher(...)),
-            callbacks=[StoreResultsCallback(), AutoResearchCallback()],
+            scheduler=AutoSearch(LLMSearcher(...)),
+            callbacks=[StoreResultsCallback(), AutoSearchCallback()],
             ...
         )
 
@@ -79,13 +79,13 @@ class AutoResearch(TrialScheduler):
         }
 
 
-class AutoResearchCallback(TunerCallback):
-    """Sets the output folder of the :class:`AutoResearch` searcher to
+class AutoSearchCallback(TunerCallback):
+    """Sets the output folder of the :class:`AutoSearch` searcher to
     ``<tuner_path>/autoresearch`` when tuning starts."""
 
     # Syne Tune does not give schedulers the tuner path, hence this callback.
     def on_tuning_start(self, tuner):
         assert isinstance(
-            tuner.scheduler, AutoResearch
-        ), "AutoResearchCallback requires an AutoResearch scheduler"
+            tuner.scheduler, AutoSearch
+        ), "AutoSearchCallback requires an AutoSearch scheduler"
         tuner.scheduler.searcher.set_output_dir(tuner.tuner_path / "autoresearch")

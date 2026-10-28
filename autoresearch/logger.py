@@ -7,13 +7,13 @@ from syne_tune.tuning_status import TuningStatus
 from autoresearch.searchers.llm_searcher import LLMSearcher
 
 
-class AutoResearchLogger(TunerLogger):
+class AutoSearchLogger(TunerLogger):
     """Output of the tuner adapted to an :class:`LLMSearcher`: titles name
-    AutoResearch, trials are shown with the summary of their change, and the
+    AutoSearch, trials are shown with the summary of their change, and the
     total cost of the agent is printed at the end. Pass it to the tuner with
-    ``Tuner(..., output_logger=AutoResearchLogger(searcher))``.
+    ``Tuner(..., output_logger=AutoSearchLogger(searcher))``.
 
-    :param searcher: Searcher of the :class:`AutoResearch` scheduler
+    :param searcher: Searcher of the :class:`AutoSearch` scheduler
     :param max_summary_width: Summaries are cut to this number of characters in
         the status table
     """
@@ -40,7 +40,7 @@ class AutoResearchLogger(TunerLogger):
         **kwargs,
     ):
         separator = "━" * 80
-        title = self._format_message("🔬", "AutoResearch - Syne Tune", Colors.CYAN + Colors.BOLD)
+        title = self._format_message("🔬", "AutoSearch - Syne Tune", Colors.CYAN + Colors.BOLD)
         direction = "higher" if self.searcher.mode == "max" else "lower"
         print(f"\n{title}")
         print(separator)
@@ -54,12 +54,12 @@ class AutoResearchLogger(TunerLogger):
         print(f"\n{separator}\n")
 
     def print_tuning_start(self):
-        print(self._format_message("🏁", "Starting AutoResearch...", Colors.GREEN))
+        print(self._format_message("🏁", "Starting AutoSearch...", Colors.GREEN))
 
     def print_tuning_status(self, tuning_status: TuningStatus):
         separator = "━" * 80
         print(f"\n{separator}")
-        print(self._format_message("📊", "AutoResearch Status", Colors.BOLD))
+        print(self._format_message("📊", "AutoSearch Status", Colors.BOLD))
         print(self._history_table())
         print(f"{separator}\n")
 

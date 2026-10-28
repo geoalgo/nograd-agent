@@ -11,14 +11,14 @@ from syne_tune.results_callback import StoreResultsCallback
 from autoresearch import (
     ENTRY_POINT,
     AgentResponse,
-    AutoResearch,
-    AutoResearchCallback,
-    AutoResearchLogger,
+    AutoSearch,
+    AutoSearchCallback,
+    AutoSearchLogger,
     CodeAgent,
     LLMSearcher,
     load_turns,
 )
-from autoresearch.run_trial import build_trial_dir, check_frozen_files, parse_metrics, run
+from autoresearch.run_trial import build_trial_dir, check_frozen_files, parse_metric, run
 
 TRAIN = """\
 from pathlib import Path
@@ -90,6 +90,7 @@ def run_tuning(tmp_path, monkeypatch, n_workers: int, max_trials: int, metric: s
         base_dir=base_dir,
         editable_files=["train.py"],
         frozen_files=["evaluate.py"],
+        evaluate_command=["python", "evaluate.py"],
         metric=metric,
         mode="max",
         agent=agent,
@@ -97,14 +98,14 @@ def run_tuning(tmp_path, monkeypatch, n_workers: int, max_trials: int, metric: s
     )
     tuner = Tuner(
         trial_backend=LocalBackend(entry_point=ENTRY_POINT, pass_args_as_json=True),
-        scheduler=AutoResearch(searcher),
-        callbacks=[StoreResultsCallback(), AutoResearchCallback()],
+        scheduler=AutoSearch(searcher),
+        callbacks=[StoreResultsCallback(), AutoSearchCallback()],
         stop_criterion=StoppingCriterion(max_num_trials_finished=max_trials),
         n_workers=n_workers,
         max_failures=max_trials,
         wait_trial_completion_when_stopping=True,
         sleep_time=0.1,
-        output_logger=AutoResearchLogger(searcher),
+        output_logger=AutoSearchLogger(searcher),
     )
     tuner.run()
     return tuner, searcher, agent
@@ -116,7 +117,7 @@ def test_autoresearch_sequential(tmp_path, monkeypatch, capsys):
     history = searcher.history()
 
     output = capsys.readouterr().out
-    assert "AutoResearch - Syne Tune" in output
+    assert "AutoSearch - Syne Tune" in output
     assert "Trial 1 started: proposal 1" in output
     # FakeAgent costs 0.01$ per proposal, the baseline is free.
     assert f"{0.01 * (len(history) - 1):.2f}$" in output
@@ -200,14 +201,17 @@ def test_frozen_files_in_trial(tmp_path):
     assert (trial_dir / "evaluate.py").read_text() == EVALUATE
 
 
-def test_parse_metrics():
-    assert parse_metrics('training\n{"score": 1.5, "other": 2}\n', "score")["score"] == 1.5
+def test_parse_metric():
+    assert parse_metric('training\n{"score": 1.5, "other": 2}\n', "score") == 1.5
+    # The last report is used.
+    assert parse_metric("epoch 1 score: 1\nepoch 2 score=2.5e-1\n", "score") == 0.25
+    # Other metrics containing the name are not matched.
+    assert parse_metric("test_score: 9\nscore: 1", "score") == 1.0
+    assert parse_metric("acc (val) 0.9", "acc", r"acc \(val\) ([0-9.]+)") == 0.9
     # A missing or non-finite metric fails the trial, the agent sees why.
-    for output in ('{"other": 1.0}', '{"score": NaN}', '{"score": "high"}', "[1.0]"):
+    for output in ('{"other": 1.0}', "score: nan", '{"score": NaN}', "score: high", "test_score: 1"):
         with pytest.raises(RuntimeError, match="Missing metric:.*score"):
-            parse_metrics(output, "score")
-    with pytest.raises(RuntimeError, match="JSON dictionary.*\n.*no json here"):
-        parse_metrics("no json here", "score")
+            parse_metric(output, "score")
 
 
 @pytest.mark.timeout(60)

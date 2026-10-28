@@ -7,13 +7,16 @@ requires-python = ">=3.11"
 dependencies = [
     "pandas>=2.0",
     "psutil>=5.9",
+    "pyyaml>=6.0",
     "syne-tune>=0.16.0",
 ]
+
+[project.scripts]
+nograd-agent = "autoresearch.cli:main"
 
 [project.optional-dependencies]
 # Dependencies of examples/tabular.
 examples = [
-    "joblib>=1.3",
     "scikit-learn>=1.5",
 ]
 

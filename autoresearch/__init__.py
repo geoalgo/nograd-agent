@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from autoresearch.logger import AutoResearchLogger
-from autoresearch.scheduler import AutoResearch, AutoResearchCallback
+from autoresearch.logger import AutoSearchLogger
+from autoresearch.scheduler import AutoSearch, AutoSearchCallback
 from autoresearch.searchers import (
     AgentResponse,
     ClaudeCodeAgent,
@@ -17,9 +17,9 @@ ENTRY_POINT = str(Path(__file__).parent / "run_trial.py")
 
 __all__ = [
     "AgentResponse",
-    "AutoResearch",
-    "AutoResearchCallback",
-    "AutoResearchLogger",
+    "AutoSearch",
+    "AutoSearchCallback",
+    "AutoSearchLogger",
     "ClaudeCodeAgent",
     "CodeAgent",
     "ENTRY_POINT",

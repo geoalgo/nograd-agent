@@ -2,10 +2,13 @@
 
 Builds the trial folder from the base folder overlaid with the candidate files,
 restores the frozen files from the base folder as read-only files, then runs
-the train and evaluate commands in the trial folder. The trial fails if
-training changed a frozen file. This guards against accidental changes only:
-candidates run as the same user and are trusted not to cheat. The last line printed by the evaluate command must be a JSON dictionary
-of metrics, which are reported together with the training time.
+the train command, and the evaluate command if any, in the trial folder. The
+trial fails if training changed a frozen file. This guards against accidental
+changes only: candidates run as the same user and are trusted not to cheat.
+
+The metric is parsed from the output of the last command run, by default from
+the last line containing ``<metric>: <value>`` or ``<metric>=<value>``, and is
+reported together with the training time.
 
 On failure, the end of the error output is written to <candidate_dir>/error.txt
 so that the searcher can show it to the agent, and the trial exits with an error.
@@ -15,6 +18,7 @@ import argparse
 import json
 import math
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -33,6 +37,12 @@ ERROR_TAIL_LINES = 60
 # Start of the error of a trial whose evaluation did not report the metric.
 MISSING_METRIC_ERROR = "Missing metric:"
 IGNORED = shutil.ignore_patterns("__pycache__", ERROR_FILE)
+NUMBER = r"[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?|[-+]?(?i:nan|inf)"
+
+
+def default_metric_regex(metric: str) -> str:
+    """Matches ``metric: 0.87``, ``metric=0.87`` and ``"metric": 0.87`` in JSON."""
+    return rf"(?<![\w.]){re.escape(metric)}\"?\s*[:=]\s*({NUMBER})"
 
 
 def build_trial_dir(
@@ -62,25 +72,32 @@ def check_frozen_files(base_dir: Path, trial_dir: Path, frozen_files: list[str])
             )
 
 
-def parse_metrics(output: str, metric: str) -> dict:
-    """Parse the JSON dictionary of metrics on the last line of the evaluation
-    output, raise if it does not contain a finite value for the metric."""
-    lines = output.strip().splitlines()
+def parse_metric(output: str, metric: str, metric_regex: str | None = None) -> float:
+    """Parse the value of the metric from the last match of metric_regex in the
+    output, raise if there is none or if it is not finite.
+
+    :param metric_regex: Regular expression whose first group is the value,
+        defaults to :func:`default_metric_regex`
+    """
+    pattern = metric_regex or default_metric_regex(metric)
+    matches = list(re.finditer(pattern, output))
+    if not matches:
+        tail = "\n".join(output.strip().splitlines()[-5:])
+        raise RuntimeError(
+            f"{MISSING_METRIC_ERROR} no line of the output reports {metric} "
+            f"(regex {pattern!r}), the output ends with:\n{tail}"
+        )
+    text = matches[-1].group(1)
     try:
-        metrics = json.loads(lines[-1])
-    except (IndexError, json.JSONDecodeError) as e:
-        tail = "\n".join(lines[-5:])
+        value = float(text)
+    except ValueError:
+        value = math.nan
+    if not math.isfinite(value):
         raise RuntimeError(
-            f"The last line of the evaluation output must be a JSON dictionary "
-            f"of metrics ({e}), the output ends with:\n{tail}"
+            f"{MISSING_METRIC_ERROR} {metric} must be a finite number, the "
+            f"output reported {text!r}"
         )
-    value = metrics.get(metric) if isinstance(metrics, dict) else None
-    if not isinstance(value, (int, float)) or not math.isfinite(value):
-        raise RuntimeError(
-            f"{MISSING_METRIC_ERROR} the evaluation must report a finite number "
-            f'for "{metric}", it reported {lines[-1]}'
-        )
-    return metrics
+    return value
 
 
 def kill_process_tree(pid: int):
@@ -170,15 +187,15 @@ def main():
         build_trial_dir(
             Path(spec["base_dir"]), candidate_dir, trial_dir, spec["frozen_files"]
         )
-        run(spec["train_command"], trial_dir, timeout)
+        output = run(spec["train_command"], trial_dir, timeout)
         train_time = time.time() - start
         check_frozen_files(Path(spec["base_dir"]), trial_dir, spec["frozen_files"])
-        output = run(
-            spec["evaluate_command"], trial_dir, max(timeout - train_time, 1.0)
-        )
-        metrics = parse_metrics(output, spec["metric"])
-        # A train_time reported by the evaluation takes precedence.
-        Reporter()(**{"train_time": train_time, **metrics})
+        if spec["evaluate_command"]:
+            output = run(
+                spec["evaluate_command"], trial_dir, max(timeout - train_time, 1.0)
+            )
+        value = parse_metric(output, spec["metric"], spec["metric_regex"])
+        Reporter()(**{"train_time": train_time, spec["metric"]: value})
     except subprocess.TimeoutExpired:
         write_error(candidate_dir, f"Timeout: exceeded {timeout:.0f}s.")
         raise

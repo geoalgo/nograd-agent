@@ -35,19 +35,22 @@ This [repo](https://github.com/ferreirafabio/autoresearch-automl) is also nice a
   - `agent.py`: `CodeAgent` interface and `ClaudeCodeAgent`, which calls the
     Claude Code CLI in print mode
   - `prompts.py`: system prompt and prompt asking for the next candidate
-- `autoresearch/scheduler.py`: `AutoResearch`, the Syne Tune scheduler that
-  forwards trial events to the searcher, and `AutoResearchCallback`, which
+- `autoresearch/scheduler.py`: `AutoSearch`, the Syne Tune scheduler that
+  forwards trial events to the searcher, and `AutoSearchCallback`, which
   sets the output folder of the searcher to `<tuner_path>/autoresearch`
-- `autoresearch/logger.py`: `AutoResearchLogger`, output of the tuner showing
+- `autoresearch/logger.py`: `AutoSearchLogger`, output of the tuner showing
   the summary of each candidate and the total LLM cost, passed with
-  `Tuner(..., output_logger=AutoResearchLogger(searcher))`
+  `Tuner(..., output_logger=AutoSearchLogger(searcher))`
 - `autoresearch/run_trial.py`: entry point of every trial (`ENTRY_POINT`),
-  builds the trial folder from the candidate, runs training and evaluation
-  and reports the metrics
-- `examples/tabular/launch.py`: launches the search on the example task
-- `examples/tabular/task/train.py`: the training script the agent modifies
-- `examples/tabular/task/eval.py`: the fixed evaluation, the agent cannot
-  modify it
+  builds the trial folder from the candidate, runs the script and reports
+  the metric parsed from its output
+- `autoresearch/cli.py`: the `nograd-agent` command
+- `examples/tabular/task/`: the example task
+  - `train.py`: the training script the agent modifies, prints the scores
+  - `eval.py`: the fixed data splits and evaluation, the agent cannot modify it
+  - `PROMPT.md`: description of the task given to the agent
+  - `nograd.yaml`: settings of the search
+- `examples/tabular/launch.py`: the same search with the Python API
 - `tests/`: tests of the whole loop with a fake agent
 
 ## Running
@@ -57,17 +60,18 @@ Requires [uv](https://docs.astral.sh/uv/) and the
 
 ```bash
 uv sync --extra examples
-uv run python examples/tabular/launch.py --n_workers 2 --max_trials 10
+uv run nograd-agent --src_dir examples/tabular/task --max_trials 5
 ```
 
-Options of `launch.py`: `--model` (default `sonnet`) and `--trial_timeout` in
-seconds (default 120). Agent conversations and candidate scripts are written
-to the folder printed at the end of the run.
+Settings are read from `nograd.yaml` in the source folder, options passed on
+the command line override them, see `nograd-agent --help`. Agent
+conversations and candidate scripts are written to the folder printed at the
+end of the run, together with the settings used.
 
 To train and evaluate the current script by hand:
 
 ```bash
-cd examples/tabular/task && uv run python train.py && uv run python eval.py
+cd examples/tabular/task && uv run python train.py
 ```
 
 To run the tests:
@@ -78,10 +82,29 @@ uv run pytest tests
 
 ## Using it on another task
 
-Put the initial script in a folder with a fixed evaluation script whose last
-line of output is a JSON dictionary of metrics, then give `LLMSearcher` the
-files the agent may edit (`editable_files`), the ones it may only read
-(`frozen_files`, read-only for the agent and restored in every trial, which
-fails if training changed them; this catches mistakes, candidates are trusted
-not to cheat on purpose), the train and evaluate commands and the metric to optimize.
-See `examples/tabular/launch.py`.
+Put the training script in a folder, by default `train.py`, which prints the
+metric to optimize as `<metric>: <value>` or `<metric>=<value>`; the last
+such line is used. Describe the task in a prompt and set the metric in
+`nograd.yaml`:
+
+```yaml
+metric: valid_accuracy
+mode: max                  # or min
+prompt_file: PROMPT.md     # or `prompt: ...`
+frozen_files: [eval.py]    # files the agent can read but not change
+```
+
+Then run `nograd-agent --src_dir <folder>`. The whole folder is copied to
+every trial and paths are relative to it. Other settings:
+
+- `train_script`: the script run in every trial, default `train.py`
+- `editable_files`: files the agent may change, default the train script
+- `eval_script`: a script run after training, from whose output the metric is
+  then parsed; it is frozen
+- `metric_regex`: regular expression whose first group is the value of the
+  metric, for other output formats
+- `n_workers`, `max_trials`, `trial_timeout`, `model`, `effort`, `name`
+
+Frozen files are read-only for the agent and restored in every trial, which
+fails if training changed them. This catches mistakes, candidates are trusted
+not to cheat on purpose: the training script prints its own score.

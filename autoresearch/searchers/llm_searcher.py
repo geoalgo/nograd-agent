@@ -1,6 +1,7 @@
 import difflib
 import json
 import logging
+import re
 import shutil
 import time
 from dataclasses import asdict, dataclass, field
@@ -62,7 +63,7 @@ class LLMSearcher:
 
     The workspace, candidates and the log of all turns (``turns.jsonl``) are
     stored in the folder set by :meth:`set_output_dir`, which
-    :class:`AutoResearch` sets to ``<tuner_path>/autoresearch``.
+    :class:`AutoSearch` sets to ``<tuner_path>/autoresearch``.
 
     :param task_prompt: Description of the problem, sent in the first message
     :param base_dir: Folder with the initial version of the script. All its files
@@ -74,10 +75,13 @@ class LLMSearcher:
         fails if training changed them.
     :param train_command: Command run first in the trial folder, ``python`` is
         replaced by the interpreter running the trial
-    :param evaluate_command: Command run after training in the trial folder, its
-        last line of output must be a JSON dictionary of metrics
-    :param metric: Name of the reported metric to optimize
+    :param evaluate_command: Optional command run after training in the trial
+        folder. The metric is parsed from the output of the last command run.
+    :param metric: Name of the metric to optimize
     :param mode: "max" or "min"
+    :param metric_regex: Regular expression whose first group is the value of
+        the metric, the last match in the output is used. Defaults to a line
+        containing ``<metric>: <value>`` or ``<metric>=<value>``.
     :param agent: Coding agent, defaults to :class:`ClaudeCodeAgent` with Sonnet
     :param trial_timeout: Maximum seconds for training plus evaluation of a trial
     :param evaluate_baseline: Whether the first candidate is the unmodified script
@@ -96,7 +100,8 @@ class LLMSearcher:
         mode: str = "max",
         frozen_files: list[str] = (),
         train_command: list[str] = ("python", "train.py"),
-        evaluate_command: list[str] = ("python", "evaluate.py"),
+        evaluate_command: list[str] | None = None,
+        metric_regex: str | None = None,
         agent: CodeAgent | None = None,
         trial_timeout: float = 120.0,
         evaluate_baseline: bool = True,
@@ -111,7 +116,12 @@ class LLMSearcher:
         for name in self.editable_files + self.frozen_files:
             assert (self.base_dir / name).is_file(), f"{self.base_dir / name} not found"
         self.train_command = list(train_command)
-        self.evaluate_command = list(evaluate_command)
+        self.evaluate_command = None if evaluate_command is None else list(evaluate_command)
+        if metric_regex is not None:
+            assert re.compile(metric_regex).groups >= 1, (
+                f"metric_regex must capture the value in a group, got {metric_regex!r}"
+            )
+        self.metric_regex = metric_regex
         self.metric = metric
         self.mode = mode
         self.agent = agent if agent is not None else ClaudeCodeAgent()
@@ -146,6 +156,7 @@ class LLMSearcher:
             "evaluate_command": self.evaluate_command,
             "timeout": self.trial_timeout,
             "metric": self.metric,
+            "metric_regex": self.metric_regex,
         }
         self.spec_path.write_text(json.dumps(spec, indent=2))
         # When tuning resumes with Tuner.load, the searcher is the one of the
@@ -181,7 +192,7 @@ class LLMSearcher:
     def candidate_dir(self, candidate_id: int) -> Path:
         return self.candidates_dir / str(candidate_id)
 
-    # ---- Called by AutoResearch ----
+    # ---- Called by AutoSearch ----
 
     def suggest(self) -> dict[str, Any]:
         """Propose a new candidate and return the config of the trial running it."""
@@ -218,12 +229,13 @@ class LLMSearcher:
             error_path.read_text() if error_path.exists() else self._trial_stderr(turn)
         )
         self._finish(turn)
-        # Most likely a wrong metric name or evaluate command, every candidate
-        # would fail the same way.
+        # Most likely a wrong metric name or regex, every candidate would fail
+        # the same way.
         if candidate_id == 0 and self.evaluate_baseline and MISSING_METRIC_ERROR in turn.error:
             raise ValueError(
                 f"The unmodified baseline did not report the metric, check "
-                f"metric={self.metric!r} and the evaluate command:\n{turn.error}"
+                f"metric={self.metric!r}, metric_regex and the output of the "
+                f"script:\n{turn.error}"
             )
 
     # ---- Queryable history ----
