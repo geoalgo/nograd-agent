@@ -156,6 +156,7 @@ class LLMSearcher:
             "evaluate_command": self.evaluate_command,
             "timeout": self.trial_timeout,
             "metric": self.metric,
+            "mode": self.mode,
             "metric_regex": self.metric_regex,
         }
         self.spec_path.write_text(json.dumps(spec, indent=2))

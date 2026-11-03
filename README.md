@@ -45,6 +45,8 @@ This [repo](https://github.com/ferreirafabio/autoresearch-automl) is also nice a
   builds the trial folder from the candidate, runs the script and reports
   the metric parsed from its output
 - `autoresearch/cli.py`: the `nograd-agent` command
+- `autoresearch/analyse.py`: the `nograd-analyse` command, statistics and plot
+  of a search
 - `examples/tabular/task/`: the example task
   - `train.py`: the training script the agent modifies, prints the scores
   - `eval.py`: the fixed data splits and evaluation, the agent cannot modify it
@@ -72,6 +74,17 @@ To train and evaluate the current script by hand:
 
 ```bash
 cd examples/tabular/task && uv run python train.py
+```
+
+At the end of the search, unless `--skip_analysis` is passed, and at any time
+with `nograd-analyse`, the search is summarized with statistics in text and a
+bar plot of the metric per candidate labelled by Claude Haiku (`--label_model` to change it,
+`--no_llm_labels` to skip it):
+
+```bash
+uv sync --extra plot
+uv run nograd-analyse                 # latest search, plot in <search>/analysis.png
+uv run nograd-analyse ~/syne-tune/<search> --output plot.png
 ```
 
 To run the tests:

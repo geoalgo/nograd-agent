@@ -28,6 +28,7 @@ from autoresearch import (
     ClaudeCodeAgent,
     LLMSearcher,
 )
+from autoresearch.analyse import analyse
 
 CONFIG_FILE = "nograd.yaml"
 
@@ -58,6 +59,7 @@ DEFAULTS = {
     "model": "sonnet",
     "effort": None,
     "name": None,
+    "skip_analysis": False,
 }
 
 
@@ -103,6 +105,12 @@ def make_parser() -> argparse.ArgumentParser:
     agent.add_argument("--model", help="Claude model, default: sonnet")
     agent.add_argument("--effort", help="Reasoning effort of the model")
     parser.add_argument("--name", help="Name of the experiment, default: the source folder name")
+    parser.add_argument(
+        "--skip_analysis",
+        action="store_true",
+        default=None,
+        help="Do not print the statistics and plot the results at the end, see nograd-analyse",
+    )
     return parser
 
 
@@ -214,6 +222,13 @@ def main(argv: list[str] | None = None):
     tuner.tuner_path.mkdir(parents=True, exist_ok=True)
     (tuner.tuner_path / CONFIG_FILE).write_text(yaml.safe_dump(settings, sort_keys=False))
     tuner.run()
+    if not settings["skip_analysis"]:
+        print()
+        try:
+            analyse(tuner.tuner_path)
+        except Exception as e:
+            # The search is saved, the analysis can be run again with nograd-analyse.
+            logging.warning(f"analysis of the search failed: {e!r}")
 
 
 if __name__ == "__main__":

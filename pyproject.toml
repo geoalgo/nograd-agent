@@ -13,8 +13,13 @@ dependencies = [
 
 [project.scripts]
 nograd-agent = "autoresearch.cli:main"
+nograd-analyse = "autoresearch.analyse:main"
 
 [project.optional-dependencies]
+# Plot of nograd-analyse.
+plot = [
+    "matplotlib>=3.8",
+]
 # Dependencies of examples/tabular.
 examples = [
     "scikit-learn>=1.5",
@@ -22,6 +27,7 @@ examples = [
 
 [dependency-groups]
 dev = [
+    "matplotlib>=3.8",
     "pytest>=8.0",
     "pytest-timeout>=2.3",
 ]

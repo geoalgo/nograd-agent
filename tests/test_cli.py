@@ -78,9 +78,14 @@ class IncrementAgent(CodeAgent):
 
 
 @pytest.mark.timeout(120)
-def test_cli_single_script(tmp_path, monkeypatch):
+def test_cli_single_script(tmp_path, monkeypatch, capsys):
+    from autoresearch import analyse
+
     monkeypatch.setenv("SYNETUNE_FOLDER", str(tmp_path / "experiments"))
     monkeypatch.setattr(cli, "ClaudeCodeAgent", IncrementAgent)
+    # Labels from the first words of the summaries, without calling Claude.
+    short_labels = analyse.short_labels
+    monkeypatch.setattr(analyse, "short_labels", lambda run, candidates, model: short_labels(run, candidates, None))
     src_dir = write_src(tmp_path, {"metric": "score", "prompt_file": "PROMPT.md", "trial_timeout": 30})
     cli.main(["--src_dir", str(src_dir), "--max_trials", "3"])
 
@@ -90,3 +95,25 @@ def test_cli_single_script(tmp_path, monkeypatch):
     assert [turn.metric for turn in turns][:3] == [1.0, 2.0, 3.0]
     saved = yaml.safe_load((tuner_path / cli.CONFIG_FILE).read_text())
     assert saved["max_trials"] == 3 and saved["src_dir"] == str(src_dir.resolve())
+
+    # The analysis runs at the end and finds the metric and mode saved with the search.
+    output = capsys.readouterr().out
+    assert "Metric: score, higher is better" in output
+    assert "Baseline (candidate 0): 1.0000" in output
+    assert (tuner_path / "analysis.png").exists()
+
+    # It can be run again on the search.
+    monkeypatch.chdir(tmp_path)
+    analyse.main([str(tuner_path), "--no_llm_labels", "--output", "plot.png"])
+    assert (tmp_path / "plot.png").exists()
+
+
+@pytest.mark.timeout(120)
+def test_cli_skip_analysis(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("SYNETUNE_FOLDER", str(tmp_path / "experiments"))
+    monkeypatch.setattr(cli, "ClaudeCodeAgent", IncrementAgent)
+    src_dir = write_src(tmp_path, {"metric": "score", "prompt_file": "PROMPT.md", "trial_timeout": 30})
+    cli.main(["--src_dir", str(src_dir), "--max_trials", "1", "--skip_analysis"])
+    (tuner_path,) = (tmp_path / "experiments").iterdir()
+    assert not (tuner_path / "analysis.png").exists()
+    assert "Metric: score" not in capsys.readouterr().out

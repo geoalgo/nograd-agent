@@ -72,6 +72,8 @@ class AutoSearch(TrialScheduler):
     def metadata(self) -> dict[str, Any]:
         return {
             "scheduler_name": type(self).__name__,
+            "metric_names": self.metric_names(),
+            "metric_mode": self.metric_mode(),
             "agent": type(self.searcher.agent).__name__,
             "model": getattr(self.searcher.agent, "model", None),
             "editable_files": self.searcher.editable_files,
