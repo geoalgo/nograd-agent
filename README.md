@@ -93,7 +93,7 @@ Frozen files are read-only for the agent and restored in every trial, which
 fails if training changed them. This catches mistakes, candidates are trusted
 not to cheat on purpose: the training script prints its own score.
 
-**Related repos.**
+## Related repos
 
 * the [original AutoResearch](https://github.com/karpathy/autoresearch) from Karpathy, which
 is minimal (mostly a markdown file). That is great, but it does not offer many features either
