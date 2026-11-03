@@ -17,14 +17,6 @@ The key benefits are to get:
 
 The repo is very much WIP, any feedback welcome. 
 
-**Related repos.**
-
-* the [original AutoResearch](https://github.com/karpathy/autoresearch) from Karpathy, which
-is minimal (mostly a markdown file). That is great, but it does not offer many features either
-*oOn the HPO / autoresearch space I am only aware of [autotune](https://github.com/RobertTLange/autotune), which derives a search space from your program, whereas
-nograd-agent uses autoresearch as a *searcher* in a standard hyperparameter optimization library
-* this [repo](https://github.com/ferreirafabio/autoresearch-automl) is also nice and benchmarks autoresearch against standard HPO methods, whereas nograd-agent can combine autoresearch with them.
-
 ## Running
 
 Requires [uv](https://docs.astral.sh/uv/) and the
@@ -101,30 +93,10 @@ Frozen files are read-only for the agent and restored in every trial, which
 fails if training changed them. This catches mistakes, candidates are trusted
 not to cheat on purpose: the training script prints its own score.
 
-## Layout
+**Related repos.**
 
-- `autoresearch/searchers/`: the searcher and the coding agent
-  - `llm_searcher.py`: `LLMSearcher`, asks the agent for a new candidate given
-    the results so far, stores candidates, conversations and the log of turns
-  - `agent.py`: `CodeAgent` interface and `ClaudeCodeAgent`, which calls the
-    Claude Code CLI in print mode
-  - `prompts.py`: system prompt and prompt asking for the next candidate
-- `autoresearch/scheduler.py`: `AutoSearch`, the Syne Tune scheduler that
-  forwards trial events to the searcher, and `AutoSearchCallback`, which
-  sets the output folder of the searcher to `<tuner_path>/autoresearch`
-- `autoresearch/logger.py`: `AutoSearchLogger`, output of the tuner showing
-  the summary of each candidate and the total LLM cost, passed with
-  `Tuner(..., output_logger=AutoSearchLogger(searcher))`
-- `autoresearch/run_trial.py`: entry point of every trial (`ENTRY_POINT`),
-  builds the trial folder from the candidate, runs the script and reports
-  the metric parsed from its output
-- `autoresearch/cli.py`: the `nograd-agent` command
-- `autoresearch/analyse.py`: the `nograd-analyse` command, statistics and plot
-  of a search
-- `examples/tabular/task/`: the example task
-  - `train.py`: the training script the agent modifies, prints the scores
-  - `eval.py`: the fixed data splits and evaluation, the agent cannot modify it
-  - `PROMPT.md`: description of the task given to the agent
-  - `nograd.yaml`: settings of the search
-- `examples/tabular/launch.py`: the same search with the Python API
-- `tests/`: tests of the whole loop with a fake agent
+* the [original AutoResearch](https://github.com/karpathy/autoresearch) from Karpathy, which
+is minimal (mostly a markdown file). That is great, but it does not offer many features either
+*oOn the HPO / autoresearch space I am only aware of [autotune](https://github.com/RobertTLange/autotune), which derives a search space from your program, whereas
+nograd-agent uses autoresearch as a *searcher* in a standard hyperparameter optimization library
+* this [repo](https://github.com/ferreirafabio/autoresearch-automl) is also nice and benchmarks autoresearch against standard HPO methods, whereas nograd-agent can combine autoresearch with them.
