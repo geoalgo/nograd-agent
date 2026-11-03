@@ -8,9 +8,7 @@ A coding agent (Claude Code) proposes new versions of a training script, and Syn
 runs and scores them as trials. The example task improves a small scikit-learn
 classifier on the Adult census income dataset.
 
-This is a standalone package that depends on the released `syne-tune` from
-PyPI, it plugs into Syne Tune through its public scheduler, backend and
-callback interfaces and does not modify or vendor any Syne Tune code.
+![Validation accuracy of every candidate of a search on the example task](figure/analysis.png)
 
 The key benefits are to get:
 - trial abstractions and execution: multiprocessing / multiGPU supported out of the box
@@ -21,47 +19,27 @@ The repo is very much WIP, any feedback welcome.
 
 **Related repos.**
 
-I was looking for a repository to run autoresearch and did not find any except the [original](https://github.com/karpathy/autoresearch) from Karpathy, which
-is minimal (mostly a markdown file). That is great, but it does not offer many features either.
-On the HPO / autoresearch space I am only aware of [autotune](https://github.com/RobertTLange/autotune), which derives a search space from your program, whereas
-nograd-agent uses autoresearch as a *searcher* in a standard hyperparameter optimization library.
-This [repo](https://github.com/ferreirafabio/autoresearch-automl) is also nice and benchmarks autoresearch against standard HPO methods, whereas nograd-agent can combine autoresearch with them.
-
-## Layout
-
-- `autoresearch/searchers/`: the searcher and the coding agent
-  - `llm_searcher.py`: `LLMSearcher`, asks the agent for a new candidate given
-    the results so far, stores candidates, conversations and the log of turns
-  - `agent.py`: `CodeAgent` interface and `ClaudeCodeAgent`, which calls the
-    Claude Code CLI in print mode
-  - `prompts.py`: system prompt and prompt asking for the next candidate
-- `autoresearch/scheduler.py`: `AutoSearch`, the Syne Tune scheduler that
-  forwards trial events to the searcher, and `AutoSearchCallback`, which
-  sets the output folder of the searcher to `<tuner_path>/autoresearch`
-- `autoresearch/logger.py`: `AutoSearchLogger`, output of the tuner showing
-  the summary of each candidate and the total LLM cost, passed with
-  `Tuner(..., output_logger=AutoSearchLogger(searcher))`
-- `autoresearch/run_trial.py`: entry point of every trial (`ENTRY_POINT`),
-  builds the trial folder from the candidate, runs the script and reports
-  the metric parsed from its output
-- `autoresearch/cli.py`: the `nograd-agent` command
-- `autoresearch/analyse.py`: the `nograd-analyse` command, statistics and plot
-  of a search
-- `examples/tabular/task/`: the example task
-  - `train.py`: the training script the agent modifies, prints the scores
-  - `eval.py`: the fixed data splits and evaluation, the agent cannot modify it
-  - `PROMPT.md`: description of the task given to the agent
-  - `nograd.yaml`: settings of the search
-- `examples/tabular/launch.py`: the same search with the Python API
-- `tests/`: tests of the whole loop with a fake agent
+* the [original AutoResearch](https://github.com/karpathy/autoresearch) from Karpathy, which
+is minimal (mostly a markdown file). That is great, but it does not offer many features either
+*oOn the HPO / autoresearch space I am only aware of [autotune](https://github.com/RobertTLange/autotune), which derives a search space from your program, whereas
+nograd-agent uses autoresearch as a *searcher* in a standard hyperparameter optimization library
+* this [repo](https://github.com/ferreirafabio/autoresearch-automl) is also nice and benchmarks autoresearch against standard HPO methods, whereas nograd-agent can combine autoresearch with them.
 
 ## Running
 
 Requires [uv](https://docs.astral.sh/uv/) and the
 [Claude Code CLI](https://docs.claude.com/en/docs/claude-code) (logged in).
+To install:
 
 ```bash
-uv sync --extra examples
+git clone https://github.com/geoalgo/nograd-agent.git
+cd nograd-agent
+uv sync --extra examples --extra plot
+```
+
+Then run the search on the example task:
+
+```bash
 uv run nograd-agent --src_dir examples/tabular/task --max_trials 5
 ```
 
@@ -70,21 +48,21 @@ the command line override them, see `nograd-agent --help`. Agent
 conversations and candidate scripts are written to the folder printed at the
 end of the run, together with the settings used.
 
-To train and evaluate the current script by hand:
-
-```bash
-cd examples/tabular/task && uv run python train.py
-```
-
 At the end of the search, unless `--skip_analysis` is passed, and at any time
 with `nograd-analyse`, the search is summarized with statistics in text and a
 bar plot of the metric per candidate labelled by Claude Haiku (`--label_model` to change it,
 `--no_llm_labels` to skip it):
 
 ```bash
-uv sync --extra plot
 uv run nograd-analyse                 # latest search, plot in <search>/analysis.png
 uv run nograd-analyse ~/syne-tune/<search> --output plot.png
+```
+
+
+To train and evaluate the current script by hand:
+
+```bash
+cd examples/tabular/task && uv run python train.py
 ```
 
 To run the tests:
@@ -116,8 +94,37 @@ every trial and paths are relative to it. Other settings:
   then parsed; it is frozen
 - `metric_regex`: regular expression whose first group is the value of the
   metric, for other output formats
-- `n_workers`, `max_trials`, `trial_timeout`, `model`, `effort`, `name`
+- `n_workers`, `max_trials`, `trial_timeout`, `model`, `effort`, `name`,
+  `skip_analysis`
 
 Frozen files are read-only for the agent and restored in every trial, which
 fails if training changed them. This catches mistakes, candidates are trusted
 not to cheat on purpose: the training script prints its own score.
+
+## Layout
+
+- `autoresearch/searchers/`: the searcher and the coding agent
+  - `llm_searcher.py`: `LLMSearcher`, asks the agent for a new candidate given
+    the results so far, stores candidates, conversations and the log of turns
+  - `agent.py`: `CodeAgent` interface and `ClaudeCodeAgent`, which calls the
+    Claude Code CLI in print mode
+  - `prompts.py`: system prompt and prompt asking for the next candidate
+- `autoresearch/scheduler.py`: `AutoSearch`, the Syne Tune scheduler that
+  forwards trial events to the searcher, and `AutoSearchCallback`, which
+  sets the output folder of the searcher to `<tuner_path>/autoresearch`
+- `autoresearch/logger.py`: `AutoSearchLogger`, output of the tuner showing
+  the summary of each candidate and the total LLM cost, passed with
+  `Tuner(..., output_logger=AutoSearchLogger(searcher))`
+- `autoresearch/run_trial.py`: entry point of every trial (`ENTRY_POINT`),
+  builds the trial folder from the candidate, runs the script and reports
+  the metric parsed from its output
+- `autoresearch/cli.py`: the `nograd-agent` command
+- `autoresearch/analyse.py`: the `nograd-analyse` command, statistics and plot
+  of a search
+- `examples/tabular/task/`: the example task
+  - `train.py`: the training script the agent modifies, prints the scores
+  - `eval.py`: the fixed data splits and evaluation, the agent cannot modify it
+  - `PROMPT.md`: description of the task given to the agent
+  - `nograd.yaml`: settings of the search
+- `examples/tabular/launch.py`: the same search with the Python API
+- `tests/`: tests of the whole loop with a fake agent
