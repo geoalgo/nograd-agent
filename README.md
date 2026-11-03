@@ -97,6 +97,6 @@ not to cheat on purpose: the training script prints its own score.
 
 * the [original AutoResearch](https://github.com/karpathy/autoresearch) from Karpathy, which
 is minimal (mostly a markdown file). That is great, but it does not offer many features either
-*oOn the HPO / autoresearch space I am only aware of [autotune](https://github.com/RobertTLange/autotune), which derives a search space from your program, whereas
+* On the HPO / autoresearch space I am only aware of [autotune](https://github.com/RobertTLange/autotune), which derives a search space from your program, whereas
 nograd-agent uses autoresearch as a *searcher* in a standard hyperparameter optimization library
 * this [repo](https://github.com/ferreirafabio/autoresearch-automl) is also nice and benchmarks autoresearch against standard HPO methods, whereas nograd-agent can combine autoresearch with them.
